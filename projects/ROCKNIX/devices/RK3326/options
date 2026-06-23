@@ -26,6 +26,7 @@
 
   # Kernel extra targets to build
     KERNEL_MAKE_EXTRACMD=" $(get_kernel_make_extracmd)"
+    KERNEL_MAKE_EXTRACMD+=" rockchip/rk3326-gameconsole-r36s-kd35t133.dtb"
 
   # Kernel cmdline
     EXTRA_CMDLINE="quiet console=ttyS2,1500000 console=tty0 systemd.debug_shell=ttyS2"

@@ -2,6 +2,7 @@
 	rocknix,device_switch {
 		r33s = "rk3326-gameconsole-r33s";
 		r36s = "rk3326-gameconsole-r36s";
+		r36s-kd35t133 = "rk3326-gameconsole-r36s-kd35t133";
 		rgb10x = "rk3326-powkiddy-rgb10x";
 	};
 };

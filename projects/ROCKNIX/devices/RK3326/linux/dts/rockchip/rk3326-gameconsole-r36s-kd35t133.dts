@@ -1,0 +1,190 @@
+// SPDX-License-Identifier: (GPL-2.0+ OR MIT)
+/*
+ * R36S variant using the KD35T133-compatible panel description extracted
+ * from the stock rk3326-r35s-linux.dtb.
+ */
+
+/dts-v1/;
+#include "rk3326-gameconsole-r3xs.dtsi"
+#include "rk3326-device-group-r36.dtsi"
+
+/ {
+	model = "Game Console R36S (KD35T133 panel)";
+	compatible = "gameconsole,r35s", "gameconsole,r36s", "rockchip,rk3326";
+
+	rocknix,device_switch {
+		this = "r36s-kd35t133";
+	};
+
+	joypad: odroidgo3-joypad {
+		compatible = "odroidgo3-joypad";
+		pwms = <&pwm0 0 200000000 0>;
+		pwm-names = "enable";
+		rumble-boost-weak = <0x0000>;
+		rumble-boost-strong = <0x0000>;
+
+		joypad-name = "r36s_Gamepad";
+		joypad-product = <0x1188>;
+		joypad-revision = <0x0188>;
+
+		status = "okay";
+
+		pinctrl-names = "default";
+		pinctrl-0 = <&btn_pins>;
+		pinctrl-1 = <&pwm0_pin>;
+
+		io-channel-names = "amux_adc";
+		io-channels = <&saradc 1>;
+
+		amux-count = <4>;
+		amux-a-gpios = <&gpio3 RK_PB3 GPIO_ACTIVE_LOW>;
+		amux-b-gpios = <&gpio3 RK_PB0 GPIO_ACTIVE_LOW>;
+		amux-en-gpios = <&gpio3 RK_PB5 GPIO_ACTIVE_LOW>;
+
+		button-adc-scale = <2>;
+		button-adc-deadzone = <64>;
+		button-adc-fuzz = <32>;
+		button-adc-flat = <32>;
+
+		abs_x-p-tuning = <200>;
+		abs_x-n-tuning = <200>;
+		abs_y-p-tuning = <200>;
+		abs_y-n-tuning = <200>;
+		abs_rx-p-tuning = <200>;
+		abs_rx-n-tuning = <200>;
+		abs_ry-p-tuning = <200>;
+		abs_ry-n-tuning = <200>;
+
+		poll-interval = <10>;
+		invert-absx;
+		invert-absy;
+
+		sw1 {
+			gpios = <&gpio1 RK_PB4 GPIO_ACTIVE_LOW>;
+			label = "GPIO DPAD-UP";
+			linux,code = <BTN_DPAD_UP>;
+		};
+		sw2 {
+			gpios = <&gpio1 RK_PB5 GPIO_ACTIVE_LOW>;
+			label = "GPIO DPAD-DOWN";
+			linux,code = <BTN_DPAD_DOWN>;
+		};
+		sw3 {
+			gpios = <&gpio1 RK_PB6 GPIO_ACTIVE_LOW>;
+			label = "GPIO DPAD-LEFT";
+			linux,code = <BTN_DPAD_LEFT>;
+		};
+		sw4 {
+			gpios = <&gpio1 RK_PB7 GPIO_ACTIVE_LOW>;
+			label = "GPIO DPAD-RIGHT";
+			linux,code = <BTN_DPAD_RIGHT>;
+		};
+		sw5 {
+			gpios = <&gpio1 RK_PA2 GPIO_ACTIVE_LOW>;
+			label = "GPIO KEY BTN-A";
+			linux,code = <BTN_EAST>;
+		};
+		sw6 {
+			gpios = <&gpio1 RK_PA5 GPIO_ACTIVE_LOW>;
+			label = "GPIO BTN-B";
+			linux,code = <BTN_SOUTH>;
+		};
+		sw7 {
+			gpios = <&gpio1 RK_PA6 GPIO_ACTIVE_LOW>;
+			label = "GPIO BTN-Y";
+			linux,code = <BTN_WEST>;
+		};
+		sw8 {
+			gpios = <&gpio1 RK_PA7 GPIO_ACTIVE_LOW>;
+			label = "GPIO BTN-X";
+			linux,code = <BTN_NORTH>;
+		};
+		sw11 {
+			gpios = <&gpio2 RK_PA2 GPIO_ACTIVE_LOW>;
+			label = "GPIO BTN_THUMBL";
+			linux,code = <BTN_THUMBL>;
+		};
+		sw12 {
+			gpios = <&gpio2 RK_PA3 GPIO_ACTIVE_LOW>;
+			label = "GPIO BTN_THUMBR";
+			linux,code = <BTN_THUMBR>;
+		};
+		sw13 {
+			gpios = <&gpio2 RK_PA4 GPIO_ACTIVE_LOW>;
+			label = "GPIO BTN_FN";
+			linux,code = <BTN_MODE>;
+		};
+		sw15 {
+			gpios = <&gpio2 RK_PA6 GPIO_ACTIVE_LOW>;
+			label = "GPIO TOP-LEFT";
+			linux,code = <BTN_TL>;
+		};
+		sw16 {
+			gpios = <&gpio2 RK_PA7 GPIO_ACTIVE_LOW>;
+			label = "GPIO TOP-RIGHT";
+			linux,code = <BTN_TR>;
+		};
+		sw19 {
+			gpios = <&gpio3 RK_PB1 GPIO_ACTIVE_LOW>;
+			label = "GPIO BTN_SELECT";
+			linux,code = <BTN_SELECT>;
+		};
+		sw20 {
+			gpios = <&gpio3 RK_PB7 GPIO_ACTIVE_LOW>;
+			label = "GPIO TOP-RIGHT2";
+			linux,code = <BTN_TR2>;
+		};
+		sw21 {
+			gpios = <&gpio3 RK_PB2 GPIO_ACTIVE_LOW>;
+			label = "GPIO TOP-LEFT2";
+			linux,code = <BTN_TL2>;
+		};
+		sw22 {
+			gpios = <&gpio3 RK_PB4 GPIO_ACTIVE_LOW>;
+			label = "GPIO BTN_START";
+			linux,code = <BTN_START>;
+		};
+	};
+};
+
+&internal_display {
+	compatible = "rocknix,generic-dsi";
+	iovcc-supply = <&vcc_lcd>;
+	vdd-supply = <&vcc_lcd>;
+	enable-gpios = <&gpio1 RK_PC2 GPIO_ACTIVE_HIGH>;
+	reset-gpios = <&gpio3 RK_PC0 GPIO_ACTIVE_LOW>;
+
+	/* Imported from r36/rk3326-r35s-linux.dtb. */
+	panel_description =
+		"G name='R36S KD35T133' size=71,71 delays=100,50,20,200,20 format=rgb888 lanes=4 flags=0xe03",
+		"M clock=40000 horizontal=640,120,120,120 vertical=480,13,5,17 default=1",
+		"M clock=25500 horizontal=640,188,2,190 vertical=480,13,2,5",
+		"M clock=30600 horizontal=640,87,2,87 vertical=480,13,2,5",
+		"I seq=11 wait=150",
+		"I seq=29 wait=50";
+};
+
+&pinctrl {
+	btns {
+		btn_pins: btn-pins {
+			rockchip,pins = <1 RK_PB4 RK_FUNC_GPIO &pcfg_pull_up>,
+					<1 RK_PB5 RK_FUNC_GPIO &pcfg_pull_up>,
+					<1 RK_PB6 RK_FUNC_GPIO &pcfg_pull_up>,
+					<1 RK_PB7 RK_FUNC_GPIO &pcfg_pull_up>,
+					<1 RK_PA2 RK_FUNC_GPIO &pcfg_pull_up>,
+					<1 RK_PA5 RK_FUNC_GPIO &pcfg_pull_up>,
+					<1 RK_PA6 RK_FUNC_GPIO &pcfg_pull_up>,
+					<1 RK_PA7 RK_FUNC_GPIO &pcfg_pull_up>,
+					<2 RK_PA2 RK_FUNC_GPIO &pcfg_pull_up>,
+					<2 RK_PA3 RK_FUNC_GPIO &pcfg_pull_up>,
+					<2 RK_PA4 RK_FUNC_GPIO &pcfg_pull_up>,
+					<2 RK_PA5 RK_FUNC_GPIO &pcfg_pull_up>,
+					<2 RK_PA6 RK_FUNC_GPIO &pcfg_pull_up>,
+					<2 RK_PA7 RK_FUNC_GPIO &pcfg_pull_up>,
+					<3 RK_PB1 RK_FUNC_GPIO &pcfg_pull_up>,
+					<3 RK_PB2 RK_FUNC_GPIO &pcfg_pull_up>,
+					<3 RK_PB4 RK_FUNC_GPIO &pcfg_pull_up>,
+					<3 RK_PB7 RK_FUNC_GPIO &pcfg_pull_up>;
+		};
+	};
+};
