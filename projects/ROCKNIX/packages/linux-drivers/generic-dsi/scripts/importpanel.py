@@ -209,7 +209,7 @@ def import_sequence(property_name, line_type):
 
         maybe_wait = f" wait={wait}" if (wait) else ""
         maybe_comment = f" # orig_cmd=0x{cmd:x}" if comment else ""
-        acc.append(f"{line_type} seq={data.hex()}{maybe_wait}{maybe_comment}")
+        acc.append(f"{line_type} type=0x{cmd:x} data={data.hex()}{maybe_wait}{maybe_comment}")
 
 import_sequence("panel-init-sequence", "I")
 import_sequence("panel-exit-sequence", "E")

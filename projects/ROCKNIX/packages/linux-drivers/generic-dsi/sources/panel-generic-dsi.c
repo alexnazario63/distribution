@@ -56,6 +56,7 @@ struct generic_panel_mode {
 #define DCS_PSEUDO_CMD_SEQ 0x10000
 struct generic_panel_cmd_seq {
     int dcs;
+    int type;
     int len;
     int read;
     int wait;
@@ -203,6 +204,7 @@ int load_cmd_seq(char *data, struct mipi_dsi_device *dsi,
 
     item = devm_kzalloc(dev, sizeof(*item), GFP_KERNEL);
     item->dcs = -1;
+    item->type = -1;
     item->len = -1;
     item->read = 0;
     item->wait = 0;
@@ -213,6 +215,8 @@ int load_cmd_seq(char *data, struct mipi_dsi_device *dsi,
         if (strcmp(param, "dcs") == 0) {
             item->dcs = simple_strtoul(val, NULL, 16) & 0xFF;
             //dev_info(dev, "Init dcs %02x\n", item->dcs);
+        } else if (strcmp(param, "type") == 0) {
+            item->type = simple_strtoul(val, NULL, 16) & 0xFF;
         } else if (strcmp(param, "data") == 0) {
             item->len = (strlen(val)) >> 1;
             item->data = devm_kzalloc(dev, item->len, GFP_KERNEL);
@@ -240,7 +244,7 @@ int load_cmd_seq(char *data, struct mipi_dsi_device *dsi,
         }
     }
 
-    if (item->dcs >= 0) {
+    if ((item->dcs >= 0) || (item->type >= 0)) {
         item->link = *head;
         *head = item;
         return 0;
@@ -413,6 +417,26 @@ static int generic_panel_run_sequence(struct generic_panel *ctx,
                     dev_info(ctx->dev, "read[%d]: %02x\n", i, readbuf[i]);
                 }
             }
+        } else if (iseq->type >= 0) {
+            switch (iseq->type) {
+            case MIPI_DSI_GENERIC_SHORT_WRITE_0_PARAM:
+            case MIPI_DSI_GENERIC_SHORT_WRITE_1_PARAM:
+            case MIPI_DSI_GENERIC_SHORT_WRITE_2_PARAM:
+            case MIPI_DSI_GENERIC_LONG_WRITE:
+                ret = mipi_dsi_generic_write(dsi, iseq->data, iseq->len);
+                break;
+            case MIPI_DSI_DCS_SHORT_WRITE:
+            case MIPI_DSI_DCS_SHORT_WRITE_PARAM:
+            case MIPI_DSI_DCS_LONG_WRITE:
+                ret = mipi_dsi_dcs_write_buffer(dsi, iseq->data, iseq->len);
+                break;
+            default:
+                dev_err(dev, "%s unsupported DSI packet type 0x%02x\n",
+                        name, iseq->type);
+                return -EINVAL;
+            }
+            dev_dbg(dev, "%s type %02x len=%d -> %d\n", name,
+                    iseq->type, iseq->len, ret);
         } else if (iseq->dcs == DCS_PSEUDO_CMD_SEQ) {
             ret = mipi_dsi_dcs_write_buffer(dsi, iseq->data, iseq->len);
             dev_dbg(dev, "iseq 0x%px len=%d -> %d\n", (void*)iseq, iseq->len, ret);

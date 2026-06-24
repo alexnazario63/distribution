@@ -175,7 +175,7 @@
 	enable-gpios = <&gpio1 RK_PC2 GPIO_ACTIVE_HIGH>;
 	reset-gpios = <&gpio3 RK_PC0 GPIO_ACTIVE_LOW>;
 
-	/* Imported from r36/rk3326-r35s-linux.dtb. */
+	/* Extracted from the DarkOS DTB running successfully on this panel. */
 	panel_description =
 		/*
 		 * Exact power/DCS lifecycle from the ArkOS KD35T133 DTB.
@@ -183,13 +183,47 @@
 		 * Display On / Sleep Out commands after this sequence.
 		 */
 		"G name='R36S KD35T133' size=71,71 delays=100,50,20,200,50,20 format=rgb888 lanes=4 flags=0xa03 dcs=manual",
-		"M clock=40000 horizontal=640,120,120,120 vertical=480,17,5,13 default=1",
+		"M clock=40000 horizontal=640,60,2,60 vertical=480,20,4,14 default=1",
 		"M clock=25500 horizontal=640,188,2,190 vertical=480,13,2,5",
 		"M clock=30600 horizontal=640,87,2,87 vertical=480,13,2,5",
-		"I seq=11 wait=150",
-		"I seq=29 wait=50",
-		"E seq=28 wait=20",
-		"E seq=10 wait=10";
+		"I type=0x39 data=f0aa55970800",
+		"I type=0x15 data=ba01", "I type=0x15 data=a1ff",
+		"I type=0x15 data=a0cc", "I type=0x15 data=a4ff",
+		"I type=0x15 data=a50b", "I type=0x15 data=937a",
+		"I type=0x15 data=b602", "I type=0x15 data=9daa",
+		"I type=0x15 data=e495",
+		"I type=0x39 data=f0aa55970801",
+		"I type=0x15 data=6006", "I type=0x15 data=62c8",
+		"I type=0x15 data=6362", "I type=0x15 data=6580",
+		"I type=0x15 data=6689", "I type=0x15 data=6891",
+		"I type=0x15 data=69c3", "I type=0x15 data=60ff",
+		"I type=0x15 data=61ff", "I type=0x15 data=62ff",
+		"I type=0x15 data=63ff", "I type=0x15 data=64ff",
+		"I type=0x15 data=65ff", "I type=0x15 data=66ff",
+		"I type=0x15 data=67ff", "I type=0x15 data=68ff",
+		"I type=0x15 data=69ff",
+		"I type=0x39 data=e35a87",
+		"I type=0x15 data=cf2d", "I type=0x15 data=e951",
+		"I type=0x39 data=b33f3434342829090b0d0f013f34343f3f3f3f3f3f3f3f3f3434342829080a0c0e003f34343f3f3f3f3f3f3f3f",
+		"I type=0x39 data=a01805525218045252",
+		"I type=0x39 data=a71152525252",
+		"I type=0x39 data=a8000301fb00000401fc030300",
+		"I type=0x39 data=a9080301f500080201f5030300",
+		"I type=0x39 data=aa080101f700080001f8030300",
+		"I type=0x39 data=ab000101f900000201fa030300",
+		"I type=0x39 data=a400080f080a0000",
+		"I type=0x39 data=a611ff880611ff8806",
+		"I type=0x39 data=b0222222222222f4",
+		"I type=0x15 data=b727",
+		"I type=0x39 data=f17f6d615657484c354c4948644f574b45382600",
+		"I type=0x39 data=f27f6d615657484c354c4948644f574b45382600",
+		"I type=0x39 data=e710027f0000",
+		"I type=0x15 data=ed02", "I type=0x15 data=ee22",
+		"I type=0x39 data=e6e835", "I type=0x15 data=3500",
+		"I type=0x05 data=11 wait=150",
+		"I type=0x05 data=29 wait=50",
+		"E type=0x05 data=28 wait=20",
+		"E type=0x05 data=10 wait=10";
 };
 
 &pinctrl {
