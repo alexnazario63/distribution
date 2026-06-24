@@ -16,6 +16,27 @@
 		this = "r36s-kd35t133";
 	};
 
+	/* Preserve kernel messages from a failed or crashed previous boot. */
+	ramoops {
+		compatible = "ramoops";
+		record-size = <0x00020000>;
+		console-size = <0x00080000>;
+		ftrace-size = <0x00000000>;
+		pmsg-size = <0x00000000>;
+		memory-region = <&ramoops_mem>;
+	};
+
+	/* Same reserved region used by the ArkOS stock DTB. */
+	reserved-memory {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		ramoops_mem: ramoops@110000 {
+			reg = <0x0 0x00110000 0x0 0x000f0000>;
+		};
+	};
+
 	joypad: odroidgo3-joypad {
 		compatible = "odroidgo3-joypad";
 		pwms = <&pwm0 0 200000000 0>;
@@ -161,7 +182,7 @@
 		 * `dcs=manual` prevents generic-dsi from appending duplicate
 		 * Display On / Sleep Out commands after this sequence.
 		 */
-		"G name='R36S KD35T133' size=71,71 delays=100,50,20,200,50,20 format=rgb888 lanes=4 flags=0xe03 dcs=manual",
+		"G name='R36S KD35T133' size=71,71 delays=100,50,20,200,50,20 format=rgb888 lanes=4 flags=0xa03 dcs=manual",
 		"M clock=40000 horizontal=640,120,120,120 vertical=480,17,5,13 default=1",
 		"M clock=25500 horizontal=640,188,2,190 vertical=480,13,2,5",
 		"M clock=30600 horizontal=640,87,2,87 vertical=480,13,2,5",

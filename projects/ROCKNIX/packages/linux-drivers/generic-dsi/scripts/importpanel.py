@@ -51,7 +51,6 @@ delays_str = ','.join(map(str, delays))
 fmt = ['rgb888', 'rgb666', 'rgb666_packed', 'rgb565'] [panel.get_property("dsi,format").value]
 lanes = panel.get_property("dsi,lanes").value
 flags = panel.get_property("dsi,flags").value
-flags |= 0x0400
 
 
 timings = panel.get_subnode("display-timings")

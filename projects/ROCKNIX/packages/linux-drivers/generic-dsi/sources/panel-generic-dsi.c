@@ -420,6 +420,10 @@ static int generic_panel_run_sequence(struct generic_panel *ctx,
             ret = mipi_dsi_dcs_write(dsi, iseq->dcs, iseq->data, iseq->len);
             dev_dbg(dev, "iseq %02x len=%d -> %d\n", iseq->dcs, iseq->len, ret);
         }
+        if (ret < 0) {
+            dev_err(dev, "%s DSI command failed: %d\n", name, ret);
+            return ret;
+        }
         if (iseq->wait) {
             msleep(iseq->wait);
         }
@@ -704,7 +708,8 @@ static int generic_panel_probe(struct mipi_dsi_device *dsi)
 
     mipi_dsi_set_drvdata(dsi, ctx);
 
-    dev_info(dev, "lanes %d, format %d, mode %lx\n", dsi->lanes, dsi->format, dsi->mode_flags);
+    dev_info(dev, "lanes %d, format %d, mode %lx, manual DCS %d\n",
+             dsi->lanes, dsi->format, dsi->mode_flags, ctx->manual_dcs);
 
     drm_panel_init(&ctx->panel, &dsi->dev, &generic_panel_funcs,
                DRM_MODE_CONNECTOR_DSI);

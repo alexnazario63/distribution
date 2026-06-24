@@ -1,0 +1,61 @@
+#!/bin/sh
+# Save the current boot's diagnostics to the FAT BOOT partition when ROCKNIX
+# debug mode is enabled. The file is therefore readable from a Windows PC.
+
+set -u
+
+LOG_DIR=/flash
+LOG_FILE=${LOG_DIR}/boot-diagnostics.log
+PREVIOUS_FILE=${LOG_DIR}/boot-diagnostics.previous.log
+TEMP_FILE=${LOG_FILE}.new
+
+mkdir -p "${LOG_DIR}"
+
+if [ -f "${LOG_FILE}" ]; then
+  mv -f "${LOG_FILE}" "${PREVIOUS_FILE}"
+fi
+
+{
+  echo "ROCKNIX boot diagnostics"
+  echo "boot_id: $(cat /proc/sys/kernel/random/boot_id 2>/dev/null || echo unavailable)"
+  echo "kernel: $(uname -a)"
+  echo "cmdline: $(cat /proc/cmdline 2>/dev/null || echo unavailable)"
+  if [ -r /proc/device-tree/model ]; then
+    printf 'device_tree_model: '
+    tr -d '\000' < /proc/device-tree/model
+    echo
+  fi
+  if [ -r /flash/extlinux/extlinux.conf ]; then
+    echo
+    echo '===== extlinux.conf ====='
+    cat /flash/extlinux/extlinux.conf
+  fi
+
+  echo
+  echo '===== kernel ring buffer ====='
+  dmesg || true
+
+  echo
+  echo '===== systemd journal (current boot) ====='
+  journalctl -b --no-pager || true
+
+  echo
+  echo '===== failed systemd units ====='
+  systemctl --failed --no-legend || true
+
+  echo
+  echo '===== previous boot pstore records ====='
+  found_pstore=0
+  for record in /sys/fs/pstore/*; do
+    if [ -f "${record}" ]; then
+      found_pstore=1
+      echo "----- ${record} -----"
+      cat "${record}" || true
+    fi
+  done
+  if [ "${found_pstore}" -eq 0 ]; then
+    echo 'No pstore record available.'
+  fi
+} > "${TEMP_FILE}" 2>&1
+
+mv -f "${TEMP_FILE}" "${LOG_FILE}"

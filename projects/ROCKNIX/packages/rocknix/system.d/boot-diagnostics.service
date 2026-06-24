@@ -1,0 +1,14 @@
+[Unit]
+Description=Save boot diagnostics to the BOOT partition
+RequiresMountsFor=/flash /storage
+After=flash.mount local-fs.target systemd-journald.service
+Before=rocknix.target
+ConditionKernelCommandLine=|debugging
+ConditionPathExists=|/storage/.cache/debug.rocknix
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/boot-diagnostics
+
+[Install]
+WantedBy=multi-user.target

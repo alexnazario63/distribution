@@ -69,8 +69,12 @@ EOF
   cp ${PKG_DIR}/sources/scripts/* ${INSTALL}/usr/bin
   chmod 0755 ${INSTALL}/usr/bin/* 2>/dev/null ||:
 
+  install -Dm644 ${PKG_DIR}/system.d/boot-diagnostics.service \
+    ${INSTALL}/usr/lib/systemd/system/boot-diagnostics.service
+
   ### Fix and migrate to autostart package
   enable_service rocknix-autostart.service
+  enable_service boot-diagnostics.service
 
   ### ZRAM/Swap and Memory Manager Service
   enable_service rocknix-memory-manager.service
