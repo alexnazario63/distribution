@@ -156,12 +156,19 @@
 
 	/* Imported from r36/rk3326-r35s-linux.dtb. */
 	panel_description =
-		"G name='R36S KD35T133' size=71,71 delays=100,50,20,200,20 format=rgb888 lanes=4 flags=0xe03",
-		"M clock=40000 horizontal=640,120,120,120 vertical=480,13,5,17 default=1",
+		/*
+		 * Exact power/DCS lifecycle from the ArkOS KD35T133 DTB.
+		 * `dcs=manual` prevents generic-dsi from appending duplicate
+		 * Display On / Sleep Out commands after this sequence.
+		 */
+		"G name='R36S KD35T133' size=71,71 delays=100,50,20,200,50,20 format=rgb888 lanes=4 flags=0xe03 dcs=manual",
+		"M clock=40000 horizontal=640,120,120,120 vertical=480,17,5,13 default=1",
 		"M clock=25500 horizontal=640,188,2,190 vertical=480,13,2,5",
 		"M clock=30600 horizontal=640,87,2,87 vertical=480,13,2,5",
 		"I seq=11 wait=150",
-		"I seq=29 wait=50";
+		"I seq=29 wait=50",
+		"E seq=28 wait=20",
+		"E seq=10 wait=10";
 };
 
 &pinctrl {

@@ -36,7 +36,8 @@ struct generic_panel_delays {
     int reset;
     int init;
     int enable;
-    int ready;
+    int disable;
+    int unprepare;
 };
 
 struct generic_panel_size {
@@ -53,13 +54,13 @@ struct generic_panel_mode {
 };
 
 #define DCS_PSEUDO_CMD_SEQ 0x10000
-struct generic_panel_init_seq {
+struct generic_panel_cmd_seq {
     int dcs;
     int len;
     int read;
     int wait;
     u8 *data;
-    struct generic_panel_init_seq *link;
+    struct generic_panel_cmd_seq *link;
 };
 
 struct generic_panel {
@@ -73,10 +74,14 @@ struct generic_panel {
     struct generic_panel_delays delays;
     struct generic_panel_size size;
     struct generic_panel_mode *modes;
-    struct generic_panel_init_seq *iseq;
+    struct generic_panel_cmd_seq *iseq;
+    struct generic_panel_cmd_seq *eseq;
 
     enum drm_panel_orientation orientation;
     bool prepared;
+    bool enabled;
+    /* Use the panel_description sequences as the complete DCS lifecycle. */
+    bool manual_dcs;
 };
 
 
@@ -85,6 +90,7 @@ int load_panel_description_line(char *data, struct mipi_dsi_device *dsi, struct 
 int load_globals(char *data, struct mipi_dsi_device *dsi, struct generic_panel *ctx);
 int load_mode(char *data, struct mipi_dsi_device *dsi, struct generic_panel *ctx);
 int load_init_seq(char *data, struct mipi_dsi_device *dsi, struct generic_panel *ctx);
+int load_exit_seq(char *data, struct mipi_dsi_device *dsi, struct generic_panel *ctx);
 
 
 
@@ -95,13 +101,20 @@ int load_globals(char *data, struct mipi_dsi_device *dsi, struct generic_panel *
         data = next_arg(data, &param, &val);
         if (!val) continue;
         if (strcmp(param, "delays") == 0) {
-            int delays[] = {0, 5, 1, 25, 120, 50};
-            get_options(val, 6, delays);
+            /*
+             * The legacy simple-panel-dsi properties have six delays:
+             * prepare, reset, init, enable, disable and unprepare.
+             * Keep sensible defaults for five-value descriptions created by
+             * older versions of the importer.
+             */
+            int delays[] = {0, 5, 1, 25, 120, 50, 20};
+            get_options(val, 7, delays);
             ctx->delays.prepare     = delays[1];
             ctx->delays.reset       = delays[2];
             ctx->delays.init        = delays[3];
             ctx->delays.enable      = delays[4];
-            ctx->delays.ready       = delays[5];
+            ctx->delays.disable     = delays[5];
+            ctx->delays.unprepare   = delays[6];
         } else if (strcmp(param, "size") == 0) {
             int size[] = {0, -1, -1};
             get_options(val, 3, size);
@@ -129,6 +142,15 @@ int load_globals(char *data, struct mipi_dsi_device *dsi, struct generic_panel *
                 dev_info(dev, "bad flags %s\n", val);
             } else {
                 dsi->mode_flags = flags;
+            }
+        } else if (strcmp(param, "dcs") == 0) {
+            if (strcmp(val, "manual") == 0) {
+                ctx->manual_dcs = true;
+            } else if (strcmp(val, "auto") == 0) {
+                ctx->manual_dcs = false;
+            } else {
+                dev_info(dev, "bad dcs mode %s\n", val);
+                return -1;
             }
         } else {
             dev_info(dev, "unknown param %s\n", param);
@@ -173,9 +195,10 @@ int load_mode(char *data, struct mipi_dsi_device *dsi, struct generic_panel *ctx
     return -1;
 }
 
-int load_init_seq(char *data, struct mipi_dsi_device *dsi, struct generic_panel *ctx) {
+int load_cmd_seq(char *data, struct mipi_dsi_device *dsi,
+                 struct generic_panel_cmd_seq **head) {
     struct device *dev = &dsi->dev;
-    struct generic_panel_init_seq *item;
+    struct generic_panel_cmd_seq *item;
     char *param, *val;
 
     item = devm_kzalloc(dev, sizeof(*item), GFP_KERNEL);
@@ -218,12 +241,20 @@ int load_init_seq(char *data, struct mipi_dsi_device *dsi, struct generic_panel 
     }
 
     if (item->dcs >= 0) {
-        item->link = ctx->iseq;
-        ctx->iseq = item;
+        item->link = *head;
+        *head = item;
         return 0;
     }
 
     return -1;
+}
+
+int load_init_seq(char *data, struct mipi_dsi_device *dsi, struct generic_panel *ctx) {
+    return load_cmd_seq(data, dsi, &ctx->iseq);
+}
+
+int load_exit_seq(char *data, struct mipi_dsi_device *dsi, struct generic_panel *ctx) {
+    return load_cmd_seq(data, dsi, &ctx->eseq);
 }
 
 /*
@@ -248,6 +279,9 @@ int load_panel_description_line(char *data, struct mipi_dsi_device *dsi, struct 
             break;
         case 'I':
             load_init_seq(data+1, dsi, ctx);
+            break;
+        case 'E':
+            load_exit_seq(data+1, dsi, ctx);
             break;
         default:
             dev_info(NULL, "Unhandled %s\n", data);
@@ -328,8 +362,8 @@ int load_panel_description(struct mipi_dsi_device *dsi, struct generic_panel *ct
     ret = panel_description_foreach(dsi, ctx, &load_panel_description_line);
     if (ret < 0) { return ret; }
 
-    // Reverse iseq
-    struct generic_panel_init_seq *rev = ctx->iseq, *fwd = NULL, *tmp = NULL;
+    // Sequences are prepended while parsing; restore their description order.
+    struct generic_panel_cmd_seq *rev = ctx->iseq, *fwd = NULL, *tmp = NULL;
     while (rev) {
         tmp = rev;
         rev = tmp->link;
@@ -337,6 +371,16 @@ int load_panel_description(struct mipi_dsi_device *dsi, struct generic_panel *ct
         fwd = tmp;
     }
     ctx->iseq = fwd;
+
+    rev = ctx->eseq;
+    fwd = NULL;
+    while (rev) {
+        tmp = rev;
+        rev = tmp->link;
+        tmp->link = fwd;
+        fwd = tmp;
+    }
+    ctx->eseq = fwd;
 
 
     return 0;
@@ -348,13 +392,15 @@ static inline struct generic_panel *panel_to_generic_panel(struct drm_panel *pan
     return container_of(panel, struct generic_panel, panel);
 }
 
-static int generic_panel_init_sequence(struct generic_panel *ctx)
+static int generic_panel_run_sequence(struct generic_panel *ctx,
+                                      struct generic_panel_cmd_seq *seq,
+                                      const char *name)
 {
     struct mipi_dsi_device *dsi = to_mipi_dsi_device(ctx->dev);
     struct device *dev = ctx->dev;
     int ret;
 
-    struct generic_panel_init_seq *iseq = ctx->iseq;
+    struct generic_panel_cmd_seq *iseq = seq;
     while (iseq) {
         if (iseq->read > 0) {
             u8 readbuf[8];
@@ -380,7 +426,7 @@ static int generic_panel_init_sequence(struct generic_panel *ctx)
         iseq = iseq->link;
     }
 
-    dev_dbg(dev, "Panel init sequence done\n");
+    dev_dbg(dev, "Panel %s sequence done\n", name);
 
     return 0;
 }
@@ -394,14 +440,16 @@ static int generic_panel_unprepare(struct drm_panel *panel)
     if (!ctx->prepared)
         return 0;
 
-    ret = mipi_dsi_dcs_set_display_off(dsi);
-    if (ret < 0)
-        dev_err(ctx->dev, "failed to set display off: %d\n", ret);
+    if (ctx->manual_dcs && ctx->eseq) {
+        generic_panel_run_sequence(ctx, ctx->eseq, "exit");
+    } else {
+        ret = mipi_dsi_dcs_set_display_off(dsi);
+        if (ret < 0)
+            dev_err(ctx->dev, "failed to set display off: %d\n", ret);
 
-    ret = mipi_dsi_dcs_enter_sleep_mode(dsi);
-    if (ret < 0) {
-        dev_err(ctx->dev, "failed to enter sleep mode: %d\n", ret);
-        return ret;
+        ret = mipi_dsi_dcs_enter_sleep_mode(dsi);
+        if (ret < 0)
+            dev_err(ctx->dev, "failed to enter sleep mode: %d\n", ret);
     }
 
     if (ctx->enable_gpio) { gpiod_set_value_cansleep(ctx->enable_gpio, 0); }
@@ -410,9 +458,10 @@ static int generic_panel_unprepare(struct drm_panel *panel)
     regulator_disable(ctx->iovcc);
     regulator_disable(ctx->vdd);
 
-    gpiod_set_value_cansleep(ctx->reset_gpio, 1);
-
     ctx->prepared = false;
+    ctx->enabled = false;
+    if (ctx->manual_dcs)
+        msleep(ctx->delays.unprepare);
 
     return 0;
 }
@@ -448,27 +497,28 @@ static int generic_panel_prepare(struct drm_panel *panel)
 
     msleep(ctx->delays.init);
 
-    ret = generic_panel_init_sequence(ctx);
+    ret = generic_panel_run_sequence(ctx, ctx->iseq, "init");
     if (ret < 0) {
         dev_err(ctx->dev, "Panel init sequence failed: %d\n", ret);
         goto disable_iovcc;
     }
 
-    ret = mipi_dsi_dcs_set_display_on(dsi);
-    if (ret < 0) {
-        dev_err(ctx->dev, "Failed to set display on: %d\n", ret);
-        goto disable_iovcc;
+    if (!ctx->manual_dcs) {
+        ret = mipi_dsi_dcs_set_display_on(dsi);
+        if (ret < 0) {
+            dev_err(ctx->dev, "Failed to set display on: %d\n", ret);
+            goto disable_iovcc;
+        }
+
+        ret = mipi_dsi_dcs_exit_sleep_mode(dsi);
+        if (ret < 0) {
+            dev_err(ctx->dev, "Failed to exit sleep mode: %d\n", ret);
+            goto disable_iovcc;
+        }
+
+        /* Preserve the lifecycle used by existing generic descriptions. */
+        msleep(ctx->delays.enable);
     }
-
-    ret = mipi_dsi_dcs_exit_sleep_mode(dsi);
-    if (ret < 0) {
-        dev_err(ctx->dev, "Failed to exit sleep mode: %d\n", ret);
-        goto disable_iovcc;
-    }
-
-    msleep(ctx->delays.enable);
-
-    //msleep(ctx->delays.ready);
 
     ctx->prepared = true;
 
@@ -479,6 +529,34 @@ disable_iovcc:
 disable_vdd:
     regulator_disable(ctx->vdd);
     return ret;
+}
+
+static int generic_panel_enable(struct drm_panel *panel)
+{
+    struct generic_panel *ctx = panel_to_generic_panel(panel);
+
+    if (ctx->enabled)
+        return 0;
+
+    if (ctx->manual_dcs)
+        msleep(ctx->delays.enable);
+    ctx->enabled = true;
+
+    return 0;
+}
+
+static int generic_panel_disable(struct drm_panel *panel)
+{
+    struct generic_panel *ctx = panel_to_generic_panel(panel);
+
+    if (!ctx->enabled)
+        return 0;
+
+    if (ctx->manual_dcs)
+        msleep(ctx->delays.disable);
+    ctx->enabled = false;
+
+    return 0;
 }
 
 /* drm_display_mode template without clock as it is variable */
@@ -557,6 +635,8 @@ static enum drm_panel_orientation generic_panel_get_orientation(struct drm_panel
 static const struct drm_panel_funcs generic_panel_funcs = {
     .unprepare  = generic_panel_unprepare,
     .prepare    = generic_panel_prepare,
+    .enable     = generic_panel_enable,
+    .disable    = generic_panel_disable,
     .get_modes  = generic_panel_get_modes,
     .get_orientation = generic_panel_get_orientation,
 };
@@ -649,9 +729,8 @@ static void generic_panel_shutdown(struct mipi_dsi_device *dsi)
 {
     struct generic_panel *ctx = mipi_dsi_get_drvdata(dsi);
 
-    drm_panel_unprepare(&ctx->panel);
-
     drm_panel_disable(&ctx->panel);
+    drm_panel_unprepare(&ctx->panel);
 }
 
 static void generic_panel_remove(struct mipi_dsi_device *dsi)

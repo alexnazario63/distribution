@@ -43,7 +43,8 @@ delays = [
         prop_default("reset-delay-ms", 50),
         prop_default("init-delay-ms", 50),
         prop_default("enable-delay-ms", 50),
-        20  # ready -- no such timeout in legacy dtbs
+        prop_default("disable-delay-ms", 50),
+        prop_default("unprepare-delay-ms", 20),
         ]
 delays_str = ','.join(map(str, delays))
 
@@ -104,8 +105,15 @@ except:
     w = round(diag_mm * hactive/pxdiag)
     h = round(diag_mm * vactive/pxdiag)
 
-# G size=52,70 delays=2,1,20,120,50,20 format=rgb888 lanes=4 flags=0xe03
-acc += [f"G {g_name}size={w},{h} delays={delays_str} format={fmt} lanes={lanes} flags=0x{flags:x}", ""]
+try:
+    panel.get_property("panel-init-sequence")
+    dcs_mode = " dcs=manual"
+except:
+    dcs_mode = ""
+
+# dcs=manual preserves the stock command ordering, including explicit 0x11/0x29.
+# G size=52,70 delays=2,1,20,120,50,20 format=rgb888 lanes=4 flags=0xe03 dcs=manual
+acc += [f"G {g_name}size={w},{h} delays={delays_str} format={fmt} lanes={lanes} flags=0x{flags:x}{dcs_mode}", ""]
 
 def absfrac(x):
     return abs(x - round(x))
@@ -180,24 +188,32 @@ for targetfps in [orig_def_fps] + common_fpss:
 
 acc += [""]
 
-iseq0 = panel.get_property("panel-init-sequence")
-if (hasattr(iseq0, 'value')) and (isinstance(iseq0.value, (int))):
-    iseq = b''.join(map(lambda w : w.to_bytes(4, "big"), list(iseq0)))
-else:
-    iseq = bytearray(iseq0)
+def import_sequence(property_name, line_type):
+    try:
+        sequence = panel.get_property(property_name)
+    except:
+        return
 
-while iseq:
-    cmd = iseq[0]
-    wait = iseq[1]
-    datalen = iseq[2]
-    iseq = iseq[3:]
+    if (hasattr(sequence, 'value')) and (isinstance(sequence.value, (int))):
+        sequence = b''.join(map(lambda w : w.to_bytes(4, "big"), list(sequence)))
+    else:
+        sequence = bytearray(sequence)
 
-    data = iseq[0:datalen]
-    iseq = iseq[datalen:]
+    while sequence:
+        cmd = sequence[0]
+        wait = sequence[1]
+        datalen = sequence[2]
+        sequence = sequence[3:]
 
-    maybe_wait = f" wait={wait}" if (wait) else ""
-    maybe_comment = f" # orig_cmd=0x{cmd:x}" if comment else ""
-    acc += [f"I seq={data.hex()}{maybe_wait}{maybe_comment}"]
+        data = sequence[0:datalen]
+        sequence = sequence[datalen:]
+
+        maybe_wait = f" wait={wait}" if (wait) else ""
+        maybe_comment = f" # orig_cmd=0x{cmd:x}" if comment else ""
+        acc.append(f"{line_type} seq={data.hex()}{maybe_wait}{maybe_comment}")
+
+import_sequence("panel-init-sequence", "I")
+import_sequence("panel-exit-sequence", "E")
 
 
 # pre-formatted dts parts
